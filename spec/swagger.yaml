@@ -1,0 +1,256 @@
+openapi: 3.0.0
+info:
+  description: This is an API spepcification for a shopping list system.
+  version: "0.1"
+  title: Shopping list API
+  contact:
+    email: valio.valtokari@gmail.com
+  license:
+    name: Apache 2.0
+    url: "http://www.apache.org/licenses/LICENSE-2.0.html"
+servers:
+  - url: https://shopping-list.apachejuice.dev/v0
+    description: Production server
+  - url: https://shopping-list.apachejuice.dev/dev
+    description: Development server (data stability not guaranteed). Uses same keycloak instance as the production server, but a different data source.
+tags:
+  - name: shopping-list
+    description: Operations on shopping list objects
+  - name: shopping-list-item
+    description: Operations on shopping list items
+  - name: user
+    description: Operations on users
+  - name: category
+    description: Operations on shopping list item categories
+paths:
+  "/me":
+    get:
+      description: Returns account info for the currently authenticated user
+      tags:
+        - user
+      security:
+        - default: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserError"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServerError"
+  "/lists":
+    get:
+      description: Returns a list of shopping lists for the currently authenticated user
+      tags:
+        - shopping-list
+      security:
+        - defult: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ShoppingList"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserError"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServerError"
+  "/lists/{id}":
+    get:
+      description: Returns the shopping list with the given ID
+      tags:
+        - shopping-list
+      security:
+        - default: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The ID of the shopping list to retrieve
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ShoppingList"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserError"
+        "404":
+          description: No shopping list found with the given ID
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserError"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServerError"
+components:
+  securitySchemes:
+    default:
+      type: oauth2
+      description: OAuth2 with authorization code flow
+      flows:
+        authorizationCode:
+          authorizationUrl: "https://auth.apachejuice.dev/realms/shopping-list/protocol/openid-connect/auth"
+          tokenUrl: "https://auth.apachejuice.dev/realms/shopping-list/protocol/openid-connect/token"
+          scopes: {}
+  schemas:
+    User:
+      type: object
+      description: Represents a user account
+      required:
+        - id
+        - name
+      properties:
+        id:
+          type: string
+          format: uuid
+          nullable: false
+          description: The ID of the user in Keycloak
+        name:
+          type: string
+          nullable: false
+          description: The name of the user in Keycloak
+    ItemCategory:
+      type: object
+      description: Describes the category of a shopping list item. These are created and managed on a per-user basis
+      required:
+        - color
+        - name
+      properties:
+        color:
+          type: string
+          minLength: 6
+          maxLength: 6
+          nullable: false
+          readOnly: false
+          description: The color of the category that is shown to the user, in hex, such as '89FFAB'
+        name:
+          type: string
+          nullable: false
+          readOnly: false
+          description: The name of the category
+    ShoppingList:
+      type: object
+      description: A single shopping list
+      required:
+        - name
+        - id
+        - items
+      properties:
+        name:
+          type: string
+          nullable: false
+          readOnly: false
+          description: The name of the shopping list
+        id:
+          type: integer
+          nullable: false
+          description: The ID of the shopping list
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ShoppingListItem"
+          nullable: false
+          readOnly: false
+          description: The items in the shopping list
+    ShoppingListItem:
+      type: object
+      description: An item in a shopping list
+      required:
+        - name
+        - id
+        - category
+      properties:
+        name:
+          type: string
+          nullable: false
+          readOnly: false
+          description: The name of the item, as shown to and set by the user
+        id:
+          type: integer
+          nullable: false
+          description: The ID of the item in the list it is in
+        category:
+          $ref: "#/components/schemas/ItemCategory"
+          nullable: false
+          readOnly: false
+          description: The assigned category of the list item
+    UserError:
+      type: object
+      description: An error that does not signal a bug in the software, but results from an incorrect call to the API.
+      required:
+        - userMessage
+        - time
+      properties:
+        userMessage:
+          type: string
+          nullable: false
+          description: A message shown to the user
+        time:
+          type: string
+          format: date-time
+          nullable: false
+          description: The time the error occurred at
+    ServerError:
+      type: object
+      description: An error that results from either a bug in the software or some incorrect configuration.
+      required:
+        - userMessage
+        - errorMessage
+        - time
+        - errorId
+      properties:
+        userMessage:
+          type: string
+          nullable: false
+          description: A message shown to the user
+        errorMessage:
+          type: string
+          nullable: false
+          description: The original error message
+        time:
+          type: string
+          format: date-time
+          nullable: false
+          description: The time the error occurred at
+        errorId:
+          type: string
+          maxLength: 12
+          minLength: 12
+          nullable: false
+          description: >
+            An error ID that can be used on the server side for debugging.
+            Consists of an 8-character epoch timestamp formatted in hex, along with a 4-characted identification code.

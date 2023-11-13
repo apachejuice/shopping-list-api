@@ -1,0 +1,7 @@
+.env
+internal/apispec
+internal/model
+config.json
+swaggerui
+*.db
+*.log

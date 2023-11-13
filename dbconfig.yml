@@ -1,0 +1,11 @@
+development:
+  dialect: sqlite3
+  datasource: test.db
+  dir: test-migrations
+  table: migrations
+
+production:
+  dialect: mysql
+  datasource: mysql://${MYSQL_USER}:${MYSQL_PASS}@tcp(localhost:3306)/${MYSQL_DBNAME}?parseTime=true
+  dir: migrations
+  table: migrations
