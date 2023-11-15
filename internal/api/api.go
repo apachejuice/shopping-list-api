@@ -1,7 +1,6 @@
 package api
 
 import (
-	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -25,8 +24,9 @@ func NewApiImpl(auth Authenticator) ApiImpl {
 	}
 }
 
-func (a *ApiImpl) Run(addr string) {
+func (a *ApiImpl) Run(addr string, trustedProxies []string) {
 	r := gin.Default()
+	r.SetTrustedProxies(trustedProxies)
 
 	// Set up swagger UI
 	r.GET("/", func(c *gin.Context) {
@@ -83,7 +83,6 @@ func (a *ApiImpl) guard(c *gin.Context, setUserId *string) (bool, int, any) {
 
 		return false, http.StatusInternalServerError, serr
 	} else if !ok {
-		fmt.Println(err)
 		return false, http.StatusUnauthorized, userError("Expired or invalid token")
 	}
 
