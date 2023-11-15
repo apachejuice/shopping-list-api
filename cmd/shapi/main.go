@@ -7,11 +7,12 @@ import (
 
 	"apachejuice.dev/apachejuice/shopping-list-api/internal/api"
 	"apachejuice.dev/apachejuice/shopping-list-api/internal/logging"
+	"apachejuice.dev/apachejuice/shopping-list-api/internal/repo"
 )
 
 type Config struct {
-	LogFile string            `json:"logfile"`
-	Auth    api.Authenticator `json:"auth"`
+	LogFile string                  `json:"logfile"`
+	Auth    api.AuthenticatorConfig `json:"auth"`
 }
 
 func main() {
@@ -27,6 +28,8 @@ func main() {
 	}
 
 	logging.InitLog(cnf.LogFile)
-	api := api.NewApiImpl(cnf.Auth, api.ApiDelegate{})
+	repo.Connect()
+
+	api := api.NewApiImpl(api.NewAuthenticator(cnf.Auth))
 	api.Run("localhost:9099")
 }

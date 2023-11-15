@@ -7,10 +7,10 @@ prod-all: oapi-generate prod-db
 test-all: oapi-generate test-db
 
 test-create-db:
-	sqlboiler sqlite3
+	(source ".test_env" && sqlboiler mysql)
 
 test-create-model:
-	sql-migrate up -env=development
+	(source ".test_env" && sql-migrate up -env=development)
 
 prod-create-db:
 	(source ".env" && sqlboiler mysql)

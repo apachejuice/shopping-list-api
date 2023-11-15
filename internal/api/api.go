@@ -1,6 +1,7 @@
 package api
 
 import (
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -14,13 +15,13 @@ import (
 // Implements the ServerInterface
 type ApiImpl struct {
 	auth     Authenticator
-	delegate ApiDelegate
+	delegate apiDelegate
 }
 
-func NewApiImpl(auth Authenticator, delegate ApiDelegate) ApiImpl {
+func NewApiImpl(auth Authenticator) ApiImpl {
 	return ApiImpl{
 		auth:     auth,
-		delegate: delegate,
+		delegate: apiDelegate{},
 	}
 }
 
@@ -53,20 +54,41 @@ func serverError(err error, msg string) apispec.ServerError {
 	}
 }
 
-func (a *ApiImpl) guard(c *gin.Context) (bool, int, any) {
+func (a *ApiImpl) handleApiError(c *gin.Context, aerr *ApiError) {
+	if aerr.IsServerError() {
+		serr := serverError(aerr, "Internal server error")
+		logging.Error(aerr, serr.ErrorId)
+
+		c.JSON(http.StatusInternalServerError, serr)
+	} else if aerr.GetCode() != -1 {
+		uerr := userError(aerr.Error())
+		c.JSON(aerr.GetCode(), uerr)
+	} else {
+		// Return as 400
+		uerr := userError("Malformed request")
+		c.JSON(http.StatusBadRequest, uerr)
+	}
+}
+
+func (a *ApiImpl) guard(c *gin.Context, setUserId *string) (bool, int, any) {
 	token := strings.Trim(strings.Split(c.Request.Header.Get("Authorization"), "Bearer ")[1], " ")
 	if token == "" {
 		return false, http.StatusUnauthorized, userError("No token provided")
 	}
 
-	ok, err := a.auth.CheckToken(token)
+	ok, userId, err := a.auth.CheckToken(c, token)
 	if err != nil && err.IsServerError() {
 		serr := serverError(stacktrace.RootCause(err), "Failed to validate token")
 		logging.Error(err, serr.ErrorId)
 
 		return false, http.StatusInternalServerError, serr
 	} else if !ok {
+		fmt.Println(err)
 		return false, http.StatusUnauthorized, userError("Expired or invalid token")
+	}
+
+	if setUserId != nil {
+		*setUserId = userId
 	}
 
 	return true, -1, nil // endpoint defines status
@@ -75,7 +97,7 @@ func (a *ApiImpl) guard(c *gin.Context) (bool, int, any) {
 var _ apispec.ServerInterface = (*ApiImpl)(nil)
 
 func (a *ApiImpl) GetLists(c *gin.Context) {
-	if ok, status, errObj := a.guard(c); !ok {
+	if ok, status, errObj := a.guard(c, nil); !ok {
 		c.JSON(status, errObj)
 		return
 	}
@@ -85,4 +107,18 @@ func (a *ApiImpl) GetLists(c *gin.Context) {
 
 func (a *ApiImpl) GetListsId(c *gin.Context, id int) {}
 
-func (a *ApiImpl) GetMe(c *gin.Context) {}
+func (a *ApiImpl) GetMe(c *gin.Context) {
+	var userId string
+	if ok, status, errObj := a.guard(c, &userId); !ok {
+		c.JSON(status, errObj)
+		return
+	}
+
+	me, aerr := a.delegate.getMe(c, userId)
+	if aerr != nil {
+		a.handleApiError(c, aerr)
+		return
+	}
+
+	c.JSON(http.StatusOK, me)
+}

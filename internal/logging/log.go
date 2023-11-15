@@ -1,8 +1,12 @@
 package logging
 
 import (
+	"fmt"
 	"log"
 	"os"
+	"runtime"
+	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/palantir/stacktrace"
@@ -35,13 +39,23 @@ func InitLog(file string) {
 		log.Fatal(err)
 	}
 
-	logger = log.New(handle, "[shapi] ", log.LstdFlags|log.Lshortfile)
+	logger = log.New(handle, "[shapi] ", log.LstdFlags)
+	logger.Printf("Hello! Starting up at %s\n", time.Now().UTC())
 	gin.DefaultWriter = logger.Writer()
 	gin.DefaultErrorWriter = logger.Writer()
 }
 
 func Info(msg string, args ...any) {
-	logger.Printf(msg+"\n", args...)
+	pc, filename, line, _ := runtime.Caller(1)
+	fn := runtime.FuncForPC(pc)
+
+	fileParts := strings.Split(filename, "/")
+	file := fileParts[len(fileParts)-1]
+
+	nameParts := strings.Split(fn.Name(), "/")
+	fnname := nameParts[len(nameParts)-1]
+
+	logger.Printf(fmt.Sprintf("%s() at %s:%d: ", fnname, file, line)+msg+"\n", args...)
 }
 
 func Error(err error, code string) {

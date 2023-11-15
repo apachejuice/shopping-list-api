@@ -1,4 +1,5 @@
 .env
+.test_env
 internal/apispec
 internal/model
 config.json
