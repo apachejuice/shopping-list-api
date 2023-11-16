@@ -5,10 +5,14 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
+	"net/url"
 	"time"
 
+	"apachejuice.dev/apachejuice/shopping-list-api/internal/logging"
 	"apachejuice.dev/apachejuice/shopping-list-api/internal/repo"
 	"github.com/Nerzal/gocloak/v13"
 	"github.com/golang-jwt/jwt/v4"
@@ -33,7 +37,31 @@ type Authenticator struct {
 func NewAuthenticator(config AuthenticatorConfig) Authenticator {
 	a := Authenticator{config: config}
 	a.kcInstance = gocloak.NewClient(a.config.KcUrl)
+	go a.logSanityCheck()
+
 	return a
+}
+
+func (a *Authenticator) logSanityCheck() {
+	path, _ := url.JoinPath(a.config.KcUrl, "realms", a.config.KcRealm, ".well-known/openid-configuration")
+	resp, err := a.kcInstance.RestyClient().R().Get(path)
+
+	if err != nil {
+		logging.Error(err, "-")
+		log.Fatal(err)
+	}
+
+	var rspSchema struct {
+		Issuer string `json:"issuer"`
+	}
+
+	err = json.Unmarshal(resp.Body(), &rspSchema)
+	if err != nil {
+		logging.Error(err, "-")
+		log.Fatal(err)
+	}
+
+	logging.Info("Keycloak sanity check done, realm address %s", rspSchema.Issuer)
 }
 
 func (a *Authenticator) CheckToken(ctx context.Context, userToken string) (bool, string, *ApiError) {
@@ -61,6 +89,11 @@ func (a *Authenticator) validateSignedToken(ctx context.Context, tokenString str
 	})
 
 	if err != nil {
+		if err.Error() == "Token is expired" {
+			logging.Info("Short-circuiting API access, token expired")
+			return false, "", NewApiError(stacktrace.NewError("Token is expired"), false)
+		}
+
 		return false, "", NewApiError(stacktrace.Propagate(err, "Error parsing or validating token"), false)
 	}
 
@@ -69,12 +102,7 @@ func (a *Authenticator) validateSignedToken(ctx context.Context, tokenString str
 	}
 
 	claims := token.Claims.(jwt.MapClaims)
-	exp := int64(claims["exp"].(float64))
 	sub := claims["sub"].(string)
-
-	if time.Unix(exp, 0).Before(time.Now()) {
-		return false, sub, NewApiError(stacktrace.NewError("Token is expired"), false)
-	}
 
 	// OK, token not expired and is correctly formatted. Check with keycloak:
 	userinfo, err := a.kcInstance.GetUserInfo(ctx, tokenString, a.config.KcRealm)
