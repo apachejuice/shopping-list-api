@@ -2,6 +2,7 @@ package repo
 
 import (
 	"context"
+	"time"
 
 	"apachejuice.dev/apachejuice/shopping-list-api/internal/model"
 	"github.com/volatiletech/sqlboiler/v4/boil"
@@ -23,10 +24,11 @@ func GetUserWithId(ctx context.Context, userId string) (*model.User, error) {
 	return user, processErr(err)
 }
 
-func CreateUser(ctx context.Context, userId string, username string) error {
+func CreateUser(ctx context.Context, userId string, username string, createdAt time.Time) error {
 	user := &model.User{
-		UserID:   userId,
-		Username: username,
+		UserID:    userId,
+		Username:  username,
+		CreatedAt: createdAt,
 	}
 
 	return user.Insert(ctx, db, boil.Infer())

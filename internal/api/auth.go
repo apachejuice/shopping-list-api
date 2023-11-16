@@ -91,7 +91,7 @@ func (a *Authenticator) validateSignedToken(ctx context.Context, tokenString str
 	ok, err := repo.HasUserWithId(ctx, *userinfo.Sub)
 	if !ok && err == nil {
 		// User does not exist; create it
-		err = repo.CreateUser(ctx, *userinfo.Sub, *userinfo.PreferredUsername)
+		err = repo.CreateUser(ctx, *userinfo.Sub, *userinfo.PreferredUsername, time.Now().UTC())
 		if err != nil {
 			return false, sub, NewApiError(stacktrace.Propagate(err, "Failed to create new user"), true)
 		}

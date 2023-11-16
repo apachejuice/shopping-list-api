@@ -8,8 +8,9 @@ import (
 
 func UserToJson(user *model.User) *apispec.User {
 	return &apispec.User{
-		Name: user.Username,
-		Id:   uuid.MustParse(user.UserID),
+		Name:      user.Username,
+		Id:        uuid.MustParse(user.UserID),
+		CreatedAt: user.CreatedAt,
 	}
 }
 
