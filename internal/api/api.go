@@ -8,6 +8,7 @@ import (
 	"apachejuice.dev/apachejuice/shopping-list-api/internal/apispec"
 	"apachejuice.dev/apachejuice/shopping-list-api/internal/logging"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/palantir/stacktrace"
 )
 
@@ -96,15 +97,59 @@ func (a *ApiImpl) guard(c *gin.Context, setUserId *string) (bool, int, any) {
 var _ apispec.ServerInterface = (*ApiImpl)(nil)
 
 func (a *ApiImpl) GetLists(c *gin.Context) {
-	if ok, status, errObj := a.guard(c, nil); !ok {
+	var userId string
+	if ok, status, errObj := a.guard(c, &userId); !ok {
 		c.JSON(status, errObj)
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{})
+	lists, aerr := a.delegate.getLists(c, userId)
+	if aerr != nil {
+		a.handleApiError(c, aerr)
+		return
+	}
+
+	c.JSON(http.StatusOK, lists)
 }
 
-func (a *ApiImpl) GetListsId(c *gin.Context, id int) {}
+func (a *ApiImpl) PostLists(c *gin.Context) {
+	var userId string
+	if ok, status, errObj := a.guard(c, &userId); !ok {
+		c.JSON(status, errObj)
+		return
+	}
+
+	var list apispec.ShoppingList
+	err := c.BindJSON(&list)
+	if err != nil {
+		a.handleApiError(c, NewApiErrorWithCode(err, http.StatusBadRequest))
+		return
+	}
+
+	result, aerr := a.delegate.createList(c, &list, userId)
+	if aerr != nil {
+		a.handleApiError(c, aerr)
+		return
+	}
+
+	c.JSON(http.StatusOK, result)
+}
+
+func (a *ApiImpl) GetListsId(c *gin.Context, listId uuid.UUID) {
+	var userId string
+	if ok, status, errObj := a.guard(c, &userId); !ok {
+		c.JSON(status, errObj)
+		return
+	}
+
+	result, aerr := a.delegate.getListId(c, listId.String(), userId)
+	if aerr != nil {
+		a.handleApiError(c, aerr)
+		return
+	}
+
+	c.JSON(http.StatusOK, result)
+}
 
 func (a *ApiImpl) GetMe(c *gin.Context) {
 	var userId string

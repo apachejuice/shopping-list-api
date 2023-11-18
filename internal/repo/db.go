@@ -42,3 +42,15 @@ func selectWithUserId(userId string) []qm.QueryMod {
 	// DO NOT USE ? AS A PLACEHOLDER: %s for table and column names (MySQL expects backticks or nothing) and %q for string values
 	return []qm.QueryMod{qm.Select("*"), model.UserWhere.UserID.EQ(userId)}
 }
+
+func selectWithCreatorId(creatorId string) []qm.QueryMod {
+	return []qm.QueryMod{qm.Select("*"), model.ShoppingListWhere.CreatorID.EQ(creatorId)}
+}
+
+func selectWithListId(listId string) []qm.QueryMod {
+	return []qm.QueryMod{qm.Select("*"), model.ShoppingListWhere.ListID.EQ(listId), qm.Limit(1)} // only one row can ever be returned
+}
+
+func selectItemWithListId(listId string) []qm.QueryMod {
+	return []qm.QueryMod{qm.Select("*"), model.ShoppingListItemWhere.ListID.EQ(listId)}
+}

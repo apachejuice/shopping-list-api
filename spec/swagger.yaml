@@ -50,12 +50,33 @@ paths:
               schema:
                 $ref: "#/components/schemas/ServerError"
   "/lists":
+    post:
+      description: Creates a shopping lst
+      tags:
+        - shopping-list
+      security:
+        - default: []
+      responses:
+        "200":
+          description: OK
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserError"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServerError"
     get:
       description: Returns a list of shopping lists for the currently authenticated user
       tags:
         - shopping-list
       security:
-        - defult: []
+        - default: []
       responses:
         "200":
           description: OK
@@ -90,7 +111,8 @@ paths:
           required: true
           description: The ID of the shopping list to retrieve
           schema:
-            type: integer
+            type: string
+            format: uuid
       responses:
         "200":
           description: OK
@@ -173,8 +195,6 @@ components:
       description: A single shopping list
       required:
         - name
-        - id
-        - items
       properties:
         name:
           type: string
@@ -182,22 +202,26 @@ components:
           readOnly: false
           description: The name of the shopping list
         id:
-          type: integer
+          type: string
+          format: uuid
           nullable: false
           description: The ID of the shopping list
+        itemCount:
+          type: integer
+          nullable: false
+          description: The item count, only sent by the server
+          readOnly: true
         items:
           type: array
+          nullable: false
+          description: The items in the shopping list, only sent by the client
           items:
             $ref: "#/components/schemas/ShoppingListItem"
-          nullable: false
-          readOnly: false
-          description: The items in the shopping list
     ShoppingListItem:
       type: object
       description: An item in a shopping list
       required:
         - name
-        - id
         - category
       properties:
         name:
@@ -206,7 +230,8 @@ components:
           readOnly: false
           description: The name of the item, as shown to and set by the user
         id:
-          type: integer
+          type: string
+          format: uuid
           nullable: false
           description: The ID of the item in the list it is in
         category:
